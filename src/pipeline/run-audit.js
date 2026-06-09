@@ -17,6 +17,8 @@ import { analyze } from "./analyze.js";
 import { sendAudit } from "./email.js";
 import { pushToMake } from "./crm.js";
 import { renderMarkdown, renderHtmlEmail } from "../audit-spec.js";
+import { renderAuditHtml } from "./pdf-template.js";
+import { htmlToPdf } from "./pdf.js";
 
 const slugify = (s) =>
   String(s || "site").toLowerCase().replace(/^https?:\/\//, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60);
@@ -43,8 +45,15 @@ export async function runAudit(prospect, meta = {}) {
   fs.writeFileSync(`${base}.html`, renderHtmlEmail(audit, prospect), "utf8");
   log.info(`Livrables : ${path.relative(process.cwd(), base)}.{json,md,html}`);
 
-  // 4) Email (notif Joachim toujours ; prospect seulement si LIVE && SEND_TO_PROSPECT)
-  const mail = await sendAudit(prospect, audit);
+  // 3bis) PDF d'audit (uniquement en mode réel — la simulation renvoie un mock)
+  let pdf = null;
+  if (LIVE) {
+    pdf = await htmlToPdf(renderAuditHtml(audit, prospect));
+    if (pdf) { fs.writeFileSync(`${base}.pdf`, pdf); log.ok(`PDF généré (${Math.round(pdf.length / 1024)} Ko)`); }
+  }
+
+  // 4) Email (notif Joachim toujours ; prospect seulement si LIVE && SEND_TO_PROSPECT) — PDF joint si dispo
+  const mail = await sendAudit(prospect, audit, pdf);
 
   // 5) CRM Make
   await pushToMake(prospect, audit, { receivedAt, status: mail.sentToProspect ? "sent_to_prospect" : "audited" });

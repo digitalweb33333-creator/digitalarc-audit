@@ -41,7 +41,7 @@ services:
       - key: NOTIFY_EMAIL
         value: joachim33333@outlook.fr
       - key: RESEND_FROM
-        value: Joachim - Digitalarc <onboarding@resend.dev>
+        value: Joachim - Digitalarc <contact@digitalarc.fr>
       # --- SECRETS : à saisir dans le dashboard Render (jamais committés) ---
       - key: RESEND_API_KEY
         sync: false

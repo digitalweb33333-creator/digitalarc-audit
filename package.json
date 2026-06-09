@@ -11,7 +11,9 @@
     "audit:demo": "node src/pipeline/run-audit.js --demo"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
     "dotenv": "^16.4.5",
-    "nodemailer": "^8.0.10"
+    "nodemailer": "^8.0.10",
+    "puppeteer-core": "^23.11.1"
   }
 }
