@@ -49,6 +49,9 @@ export const env = {
   senderWebsite: process.env.SENDER_WEBSITE || "https://digitalarc.fr",
   replyTo: process.env.SENDER_REPLY_TO || "contact@digitalarc.fr",
   notifyEmail: process.env.NOTIFY_EMAIL || "joachim33333@outlook.fr",
+  // Resend (API email HTTPS — fonctionne là où le SMTP est bloqué, ex. Render)
+  resendKey: process.env.RESEND_API_KEY || "",
+  resendFrom: process.env.RESEND_FROM || "Joachim - Digitalarc <onboarding@resend.dev>",
   // Make (log CRM des demandes d'audit)
   makeWebhookAudit: process.env.MAKE_WEBHOOK_AUDIT || "",
   // Serveur webhook — PORT est injecté par Render/Railway ; WEBHOOK_PORT en local

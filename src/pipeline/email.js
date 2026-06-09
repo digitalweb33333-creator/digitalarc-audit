@@ -1,22 +1,36 @@
 // ============================================================
-// Étape 4 du pipeline : envoi de l'audit par email (SMTP Hostinger)
+// Étape 4 du pipeline : envoi de l'audit par email
 // ------------------------------------------------------------
+// Priorité à RESEND (API HTTPS) — indispensable sur Render/PaaS qui bloquent
+// le SMTP sortant. Repli sur SMTP (nodemailer) si pas de clé Resend (local).
+//
 // - Toujours : notifie Joachim (NOTIFY_EMAIL) avec l'audit complet.
 // - Au prospect : SEULEMENT si LIVE && SEND_TO_PROSPECT (double garde-fou).
-// En mode non-LIVE : aucun envoi, on logue ce qui partirait.
+// Non-LIVE -> aucun envoi.
 // ============================================================
 import nodemailer from "nodemailer";
 import { env, LIVE, SEND_TO_PROSPECT } from "../lib/config.js";
 import { log } from "../lib/logger.js";
 import { renderHtmlEmail, renderMarkdown } from "../audit-spec.js";
 
-function transport() {
-  return nodemailer.createTransport({
-    host: env.smtpHost,
-    port: env.smtpPort,
-    secure: env.smtpSecure,
+// Envoie un email via Resend (HTTPS) ou SMTP selon la config.
+async function deliver({ to, replyTo, subject, html, text }) {
+  if (env.resendKey) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.resendKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ from: env.resendFrom, to: [to], reply_to: replyTo, subject, html, text }),
+    });
+    if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return "Resend";
+  }
+  // Repli SMTP (usage local — bloqué sur Render)
+  const t = nodemailer.createTransport({
+    host: env.smtpHost, port: env.smtpPort, secure: env.smtpSecure,
     auth: { user: env.smtpUser, pass: env.smtpPass },
   });
+  await t.sendMail({ from: `"${env.senderName}" <${env.smtpUser}>`, to, replyTo, subject, html, text });
+  return "SMTP";
 }
 
 export async function sendAudit(prospect, audit) {
@@ -27,51 +41,32 @@ export async function sendAudit(prospect, audit) {
 
   if (!LIVE) {
     log.warn(`[DRY] email NON envoyé. Prospect=${prospect.email} | Notify=${env.notifyEmail}`);
-    log.info(`[DRY] sujet prospect : "${subjectProspect}"`);
     return { sentToProspect: false, sentToJoachim: false, dry: true };
   }
 
-  const t = transport();
-  const from = `"${env.senderName}" <${env.smtpUser}>`;
-  const result = { sentToProspect: false, sentToJoachim: false };
+  const via = env.resendKey ? "Resend" : "SMTP";
+  const result = { sentToProspect: false, sentToJoachim: false, via };
 
-  // 1) Notification interne (toujours) — pour relecture avant diffusion large
+  // 1) Notification interne (toujours) — pour relecture
   try {
-    await t.sendMail({
-      from, to: env.notifyEmail, replyTo: env.replyTo,
-      subject: subjectNotify, html, text,
-    });
+    await deliver({ to: env.notifyEmail, replyTo: env.replyTo, subject: subjectNotify, html, text });
     result.sentToJoachim = true;
-    log.ok(`Audit notifié à ${env.notifyEmail}`);
+    log.ok(`Audit notifié à ${env.notifyEmail} (via ${via})`);
   } catch (e) {
-    log.error(`Échec notification interne : ${e.message}`);
+    log.error(`Échec notification interne (${via}) : ${e.message}`);
   }
 
   // 2) Envoi au prospect (double condition)
   if (SEND_TO_PROSPECT && prospect.email) {
     try {
-      await t.sendMail({
-        from, to: prospect.email, replyTo: env.replyTo,
-        subject: subjectProspect, html, text,
-      });
+      await deliver({ to: prospect.email, replyTo: env.replyTo, subject: subjectProspect, html, text });
       result.sentToProspect = true;
-      log.ok(`Audit envoyé au prospect ${prospect.email}`);
+      log.ok(`Audit envoyé au prospect ${prospect.email} (via ${via})`);
     } catch (e) {
-      log.error(`Échec envoi prospect : ${e.message}`);
+      log.error(`Échec envoi prospect (${via}) : ${e.message}`);
     }
   } else {
     log.warn(`Envoi prospect désactivé (SEND_TO_PROSPECT=${SEND_TO_PROSPECT}). Audit gardé pour relecture.`);
   }
   return result;
-}
-
-// Test de connexion SMTP (utilitaire)
-export async function verifySmtp() {
-  if (!env.smtpUser || !env.smtpPass) return { ok: false, error: "SMTP non configuré" };
-  try {
-    await transport().verify();
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
 }

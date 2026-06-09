@@ -92,6 +92,29 @@ function normalizeSubmission(body) {
   };
 }
 
+// --- Détection automatique de l'URL (si le champ n'est pas reconnu par son ID) ---
+// Une valeur ressemblant à une URL/domaine, qui n'est pas un email.
+const URL_RE = /^(https?:\/\/)?(([\w-]+\.)+[a-z]{2,})(\/[^\s]*)?$/i;
+function collectStrings(v, out) {
+  if (v == null) return;
+  if (typeof v === "string") { out.push(v); return; }
+  if (Array.isArray(v)) { for (const x of v) collectStrings(x, out); return; }
+  if (typeof v === "object") { for (const k of Object.keys(v)) collectStrings(v[k], out); }
+}
+function findUrlLike(body, email) {
+  // On exclut `meta` (Elementor y met page_url, qui n'est PAS le site du prospect)
+  const { meta, ...rest } = body || {};
+  const out = [];
+  collectStrings(rest, out);
+  const em = (email || "").toLowerCase();
+  for (let s of out) {
+    s = String(s).trim();
+    if (!s || s.includes("@") || s.toLowerCase() === em) continue;
+    if (URL_RE.test(s)) return s;
+  }
+  return "";
+}
+
 // --- Validation du secret partagé (optionnel) -------------------------------
 function secretOk(req, body, url) {
   if (!env.webhookSecret) return true;
@@ -132,6 +155,8 @@ const server = http.createServer((req, res) => {
     }
 
     const prospect = normalizeSubmission(body);
+    // Détection auto de l'URL si le champ n'a pas été reconnu par son ID
+    if (!prospect.website) prospect.website = findUrlLike(body, prospect.email);
     const receivedAt = new Date().toISOString();
 
     // Archive brute de la soumission
