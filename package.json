@@ -1,0 +1,17 @@
+{
+  "name": "digitalarc-audit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automatisation des mini-audits GEO/SEO pour digitalarc.fr (webhook Elementor -> Firecrawl -> Claude -> SMTP Hostinger -> Make)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "server": "node src/server.js",
+    "audit:demo": "node src/pipeline/run-audit.js --demo"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "nodemailer": "^8.0.10"
+  }
+}

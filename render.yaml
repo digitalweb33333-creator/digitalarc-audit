@@ -1,0 +1,53 @@
+# Render Blueprint — service web digitalarc-audit
+# Render → New → Blueprint → (connecter le repo GitHub) → ce fichier est détecté.
+# Les valeurs non secrètes sont ici ; les SECRETS (sync:false) se saisissent
+# dans le dashboard Render au premier déploiement.
+services:
+  - type: web
+    name: digitalarc-audit
+    runtime: node
+    plan: free            # free = veille après 15 min d'inactivité (cold start). Starter pour de l'always-on.
+    region: frankfurt     # proche de la France
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # --- Go-live : audit réel, envoyé seulement à NOTIFY_EMAIL ---
+      - key: AUDIT_LIVE
+        value: "true"
+      - key: AUDIT_SEND_TO_PROSPECT
+        value: "false"
+      - key: WEBHOOK_PATH
+        value: /webhook/audit
+      # --- Claude ---
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-4-8
+      # --- SMTP Hostinger (non secrets) ---
+      - key: SMTP_HOST
+        value: smtp.hostinger.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        value: contact@digitalarc.fr
+      - key: SENDER_NAME
+        value: Joachim - Digitalarc
+      - key: SENDER_WEBSITE
+        value: https://digitalarc.fr
+      - key: SENDER_REPLY_TO
+        value: contact@digitalarc.fr
+      - key: NOTIFY_EMAIL
+        value: joachim33333@outlook.fr
+      # --- SECRETS : à saisir dans le dashboard Render (jamais committés) ---
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAKE_WEBHOOK_AUDIT
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false

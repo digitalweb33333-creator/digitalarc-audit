@@ -1,0 +1,13 @@
+# Tunnel nommé Cloudflare — digitalarc-audit
+# URL fixe -> http://localhost:3000 (serveur webhook digitalarc-audit)
+#
+# <TUNNEL_ID> : à remplacer par l'ID renvoyé par `cloudflared tunnel create digitalarc-audit`
+# credentials-file : chemin du JSON généré par la même commande (dossier ~/.cloudflared)
+
+tunnel: digitalarc-audit
+credentials-file: C:\Users\joach\.cloudflared\<TUNNEL_ID>.json
+
+ingress:
+  - hostname: audit.digitalarc.fr
+    service: http://localhost:3000
+  - service: http_status:404
